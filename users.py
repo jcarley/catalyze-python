@@ -8,8 +8,6 @@ class UserRepository:
     def __init__(self, dbPath):
         self.connection = sqlite3.connect(dbPath)
         c = self.connection.cursor()
-        c.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        print(c.fetchall())
 
     def getUser(self, userID):
         c = self.connection.cursor()
@@ -40,9 +38,9 @@ class UserRepository:
             return None
 
         userID = row[0]
-        hashed = row[1]
+        hashed = row[1].encode()
 
-        if(bcrypt.hashpw(password, hashed) == hashed):
+        if(bcrypt.hashpw(password.encode(), hashed) == hashed):
             return userID
 
         return None
@@ -52,9 +50,9 @@ class UserRepository:
         query = "INSERT INTO user(username, password, first_name, last_name, favorite_color) \
                  VALUES(?, ?, ?, ?, ?)"
         
-        hashedPassword = bcrypt.hashpw(password, bcrypt.gensalt())
+        hashedPassword = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
-        c.execute(query, (username, hashedPassword, first_name, last_name, favorite_color))
+        c.execute(query, (username, hashedPassword.decode("utf-8"), first_name, last_name, favorite_color))
 
         self.connection.commit()
 
@@ -80,6 +78,9 @@ class UserRepository:
 
         return c.rowcount > 0
 
+    def __del__(self):
+        self.connection.close()
+
 class UserResource(object):
 
     def __init__(self, dbPath):
@@ -89,7 +90,7 @@ class UserResource(object):
 
         user = self.repository.getUser(userID)
         if(user is not None):
-            response.body = '{"message": "You are getting user"}'
+            response.body = json.dumps(user)
             response.status = falcon.HTTP_200
 
         else:
@@ -113,5 +114,33 @@ class UserCollectionResource(object):
         response.status = falcon.HTTP_200
 
     def on_post(self, request, response):
-        response.body = '{"message": "You are adding user"}'
-        response.status = falcon.HTTP_201
+
+        if request.content_length:
+            try:
+                raw_data = request.stream.read().decode("utf-8") 
+            except Exception as ex:
+                response.body = '{"error": "Error reading request body"}'
+                response.status = falcon.HTTP_400
+                return
+
+            try:
+                userdata = json.loads(raw_data)
+            except ValueError:
+                response.body = '{"error": "Malformed JSON"}'
+                response.status = falcon.HTTP_400
+                return
+        else:
+            response.body = '{"error": "Empty request"}'
+            response.status = falcon.HTTP_400
+            return
+
+        newID = self.repository.insertUser(userdata['username'], userdata['password'],
+                                           userdata['first_name'], userdata['last_name'],
+                                           userdata['favorite_color'])
+            
+        if newID is not None:
+            response.body = '{"message": "You are adding user"}'
+            response.status = falcon.HTTP_201
+        else:
+            response.body = '{"error": "Could not add user"}'
+            response.status = falcon.HTTP_400

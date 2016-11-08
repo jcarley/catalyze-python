@@ -11,6 +11,8 @@ import users
 api = application = falcon.API()
 
 db = os.path.join(curpath, 'data.db')
-users = users.UserResource(db)
+usersManage = users.UserResource(db)
+userCollection = users.UserCollectionResource(db)
 
-api.add_route('/user/{userID}', users)
+api.add_route('/user/{userID}', usersManage)
+api.add_route('/user', userCollection)
