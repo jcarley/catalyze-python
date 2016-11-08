@@ -5,10 +5,13 @@ import bcrypt
 
 class UserRepository:
 
-    def __init__(self):
-        self.connection = sqlite3.connect('data.db')
+    def __init__(self, dbPath):
+        self.connection = sqlite3.connect(dbPath)
+        c = self.connection.cursor()
+        c.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        print(c.fetchall())
 
-    def getUser(userID):
+    def getUser(self, userID):
         c = self.connection.cursor()
         query = "SELECT id, username, first_name, last_name, favorite_color FROM user WHERE id = ?"
 
@@ -26,7 +29,7 @@ class UserRepository:
             "favorite_color": row[4]
         }
 
-    def checkUser(username, passowrd):
+    def checkUser(self, username, passowrd):
         c = self.connection.cursor()
         query = "SELECT id, passowrd FROM user WHERE username = ?"
 
@@ -39,12 +42,12 @@ class UserRepository:
         userID = row[0]
         hashed = row[1]
 
-        if(bcrypt.hashpw(password, hashed) == hashed)
+        if(bcrypt.hashpw(password, hashed) == hashed):
             return userID
 
         return None
     
-    def insertUser(username, password, first_name, last_name, favorite_color):
+    def insertUser(self, username, password, first_name, last_name, favorite_color):
         c = self.connection.cursor()
         query = "INSERT INTO user(username, password, first_name, last_name, favorite_color) \
                  VALUES(?, ?, ?, ?, ?)"
@@ -57,7 +60,7 @@ class UserRepository:
 
         return c.lastrowid
 
-    def updateUser(userID, first_name, last_name, favorite_color):
+    def updateUser(self, userID, first_name, last_name, favorite_color):
         c = self.connection.cursor()
         query = "UPDATE user SET first_name = ?, last_name = ?, favorite_color = ? WHERE id = ?"
 
@@ -67,7 +70,7 @@ class UserRepository:
 
         return c.rowcount > 0
     
-    def deleteUser(userID):
+    def deleteUser(self, userID):
         c = self.connection.cursor();
         query = "DELETE FROM user WHERE id = ?"
 
@@ -79,22 +82,36 @@ class UserRepository:
 
 class UserResource(object):
 
-    def __init__(self):
-        self.repository = UserRepository()
+    def __init__(self, dbPath):
+        self.repository = UserRepository(dbPath)
+
+    def on_get(self, request, response, userID):
+
+        user = self.repository.getUser(userID)
+        if(user is not None):
+            response.body = '{"message": "You are getting user"}'
+            response.status = falcon.HTTP_200
+
+        else:
+            response.body = '{"error": "User not found"}'
+            response.status = falcon.HTTP_404
+
+    def on_put(self, request, response, userID):
+        response.body = '{"message": "You are updating user"}'
+        response.status = falcon.HTTP_200
+
+    def on_delete(self, request, response, userID):
+        response.body = '{"message": "You are deleting user"}'
+        response.status = falcon.HTTP_200
+
+class UserCollectionResource(object):
+    def __init__(self, dbPath):
+        self.repository = UserRepository(dbPath)
 
     def on_get(self, request, response):
-        response.body = '{"message": "You are getting user"}'
+        response.body = '{"message": "You are getting all users"}'
         response.status = falcon.HTTP_200
 
     def on_post(self, request, response):
         response.body = '{"message": "You are adding user"}'
         response.status = falcon.HTTP_201
-
-    def on_put(self, request, response):
-        response.body = '{"message": "You are updating user"}'
-        response.status = falcon.HTTP_200
-
-    def on_delete(self, request, response):
-        response.body = '{"message": "You are deleting user"}'
-        response.status = falcon.HTTP_200
-

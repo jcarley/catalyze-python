@@ -1,12 +1,16 @@
 import sys
 import os
 
-sys.path.append(os.path.dirname(__file__))
+curpath = os.path.dirname(__file__)
+if(curpath not in sys.path):
+    sys.path.append(curpath)
 
 import falcon
-import uresource
+import users
 
 api = application = falcon.API()
 
-users = uresource.UserResource()
-api.add_route('/user', users)
+db = os.path.join(curpath, 'data.db')
+users = users.UserResource(db)
+
+api.add_route('/user/{userID}', users)
