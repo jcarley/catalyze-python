@@ -6,11 +6,11 @@ import bcrypt
 class UserRepository:
 
     def __init__(self, dbPath):
-        self.connection = sqlite3.connect(dbPath)
-        c = self.connection.cursor()
+        self.dbPath = dbPath
 
     def getAllUsers(self):
-        c = self.connection.cursor()
+        conn = sqlite3.connect(self.dbPath)
+        c = self.conn.cursor()
         query = "SELECT id, username, first_name, last_name, favorite_color FROM user"
 
         c.execute(query)
@@ -24,15 +24,20 @@ class UserRepository:
                 "last_name": row[3],
                 "favorite_color": row[4]
             })
+
+        conn.close()
     
         return users
 
     def getUser(self, userID):
-        c = self.connection.cursor()
+        conn = sqlite3.connect(self.dbPath)
+        c = conn.cursor()
         query = "SELECT id, username, first_name, last_name, favorite_color FROM user WHERE id = ?"
 
-        c.execute(query, (userID))
+        c.execute(query, (userID,))
         row = c.fetchone()
+        
+        conn.close()
 
         if row is None:
             return None
@@ -46,11 +51,14 @@ class UserRepository:
         }
 
     def checkUser(self, username, passowrd):
-        c = self.connection.cursor()
+        conn = sqlite3.connect(self.dbPath)
+        c = conn.cursor()
         query = "SELECT id, passowrd FROM user WHERE username = ?"
 
-        c.execute(query, (username))
+        c.execute(query, (username,))
         row = c.fetchone();
+
+        conn.close()
 
         if row is None:
             return None
@@ -64,7 +72,8 @@ class UserRepository:
         return None
     
     def insertUser(self, username, password, first_name, last_name, favorite_color):
-        c = self.connection.cursor()
+        conn = sqlite3.connect(self.dbPath);
+        c = conn.cursor()
         query = "INSERT INTO user(username, password, first_name, last_name, favorite_color) \
                  VALUES(?, ?, ?, ?, ?)"
         
@@ -72,32 +81,38 @@ class UserRepository:
 
         c.execute(query, (username, hashedPassword.decode("utf-8"), first_name, last_name, favorite_color))
 
-        self.connection.commit()
+        conn.commit()
+        conn.close()
 
         return c.lastrowid
 
     def updateUser(self, userID, first_name, last_name, favorite_color):
-        c = self.connection.cursor()
+        conn = sqlite3.connect(self.dbPath)
+        c = conn.cursor()
         query = "UPDATE user SET first_name = ?, last_name = ?, favorite_color = ? WHERE id = ?"
 
-        c.execute(query, (first_name, last_name, favorite_color, userId))
+        c.execute(query, (first_name, last_name, favorite_color, userID))
 
-        self.connection.commit()
+        success = c.rowcount > 0
 
-        return c.rowcount > 0
+        conn.commit()
+        conn.close()
+
+        return success
     
     def deleteUser(self, userID):
-        c = self.connection.cursor();
+        conn = sqlite3.connect(self.dbPath)
+        c = conn.cursor()
         query = "DELETE FROM user WHERE id = ?"
 
-        c.execute(query, (userID))
+        c.execute(query, (userID,))
 
-        self.connection.commit()
+        success = c.rowcount > 0
 
-        return c.rowcount > 0
+        conn.commit()
+        conn.close()
 
-    def __del__(self):
-        self.connection.close()
+        return success
 
 class UserResource(object):
 
@@ -116,12 +131,44 @@ class UserResource(object):
             response.status = falcon.HTTP_404
 
     def on_put(self, request, response, userID):
-        response.body = '{"message": "You are updating user"}'
-        response.status = falcon.HTTP_200
+        if request.content_length:
+            try:
+                raw_data = request.stream.read().decode("utf-8")
+            except Exception as ex:
+                response.body = '{"error": "Error reading request body"}'
+                response.status = falcon.HTTP_400
+                return
+
+            try:
+                userdata = json.loads(raw_data)
+            except ValueError:
+                response.body = '{"error": "Malformed JSON"}'
+                response.status = falcon.HTTP_400
+                return
+        else:
+            response.body = '{"error": "Empty request"}'
+            response.status = falcon.HTTP_400
+            return
+
+        success = self.repository.updateUser(userID, userdata['first_name'],
+                                            userdata['last_name'],
+                                            userdata['favorite_color'])
+
+        if(success):
+            response.body = '{"message": "You updated the user"}'
+            response.status = falcon.HTTP_200
+        else:
+            response.body = '{"error": "Could not update user"}'
+            response.status = falcon.HTTP_400
 
     def on_delete(self, request, response, userID):
-        response.body = '{"message": "You are deleting user"}'
-        response.status = falcon.HTTP_200
+
+        if self.repository.deleteUser(userID):
+            response.body = '{"message": "You deleted the user"}'
+            response.status = falcon.HTTP_200
+        else:
+            response.body = '{"error": "Could not delete user"}'
+            response.status = falcon.HTTP_400
 
 class UserCollectionResource(object):
     def __init__(self, dbPath):
@@ -158,7 +205,7 @@ class UserCollectionResource(object):
                                            userdata['favorite_color'])
             
         if newID is not None:
-            response.body = '{"message": "You are adding user"}'
+            response.body = json.dumps(self.repository.getUser(newID))
             response.status = falcon.HTTP_201
         else:
             response.body = '{"error": "Could not add user"}'
