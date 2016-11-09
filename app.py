@@ -14,5 +14,5 @@ db = os.path.join(curpath, 'data.db')
 usersManage = users.UserResource(db)
 userCollection = users.UserCollectionResource(db)
 
-api.add_route('/user/{userID}', usersManage)
-api.add_route('/user', userCollection)
+api.add_route('/users/{userID}', usersManage)
+api.add_route('/users', userCollection)

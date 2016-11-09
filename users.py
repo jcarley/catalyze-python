@@ -9,6 +9,24 @@ class UserRepository:
         self.connection = sqlite3.connect(dbPath)
         c = self.connection.cursor()
 
+    def getAllUsers(self):
+        c = self.connection.cursor()
+        query = "SELECT id, username, first_name, last_name, favorite_color FROM user"
+
+        c.execute(query)
+
+        users = []
+        for row in c:
+            users.append({
+                "id": row[0],
+                "username": row[1],
+                "first_name": row[2],
+                "last_name": row[3],
+                "favorite_color": row[4]
+            })
+    
+        return users
+
     def getUser(self, userID):
         c = self.connection.cursor()
         query = "SELECT id, username, first_name, last_name, favorite_color FROM user WHERE id = ?"
@@ -110,7 +128,8 @@ class UserCollectionResource(object):
         self.repository = UserRepository(dbPath)
 
     def on_get(self, request, response):
-        response.body = '{"message": "You are getting all users"}'
+        users = self.repository.getAllUsers()
+        response.body = json.dumps({"users": users})
         response.status = falcon.HTTP_200
 
     def on_post(self, request, response):
