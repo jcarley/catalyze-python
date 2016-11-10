@@ -202,3 +202,30 @@ class UserResource(object):
         else:
             raise falcon.HTTPError(falcon.HTTP_400, 'Update Error',
                                    'Could not delete your user')
+
+class BaseResource(object):
+    def __init__(self, dbPath, authcheck):
+        self.repository = UserRepository(dbPath)
+        self.authcheck = authcheck
+
+    def on_get(self, request, response):
+        if self.authcheck.isAuthenticated(request):
+            self.yesAuthGet(request, response)
+
+        else:
+            self.noAuthGet(request, response)
+
+    def noAuthGet(self, request, response):
+        response.body = '{"message": "Hello World"}'
+        response.status = falcon.HTTP_200
+
+    def yesAuthGet(self, request, response):
+
+        user = self.repository.getUser(self.authcheck.userID)
+        if(user is not None):
+            response.body = json.dumps(user)
+            response.status = falcon.HTTP_200
+
+        else:
+            raise falcon.HTTPError(falcon.HTTP_404, 'User not found',
+                                   'Your user does not exist.')

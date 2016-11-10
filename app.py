@@ -20,3 +20,6 @@ api.add_route('/user', userResource)
 
 authResource = auth.AuthResource(db, authcheck)
 api.add_route('/auth', authResource)
+
+baseResource = users.BaseResource(db, authcheck)
+api.add_route('/', baseResource)
