@@ -69,8 +69,6 @@ class AuthRepository:
 
         conn.close()
 
-        print(row)
-
         if row is None:
             return None
 
