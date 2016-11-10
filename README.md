@@ -1,6 +1,5 @@
 # catalyze-python
-
-A very basic REST API
+A very basic REST API. Tested in Python 3.4.3
 
 ##Setup
 1. Run `$ python setupdb.py` in the root directory to create the necessary SQLite database
