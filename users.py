@@ -93,12 +93,10 @@ class UserRepository:
 
         c.execute(query, (first_name, last_name, favorite_color, userID))
 
-        success = c.rowcount > 0
-
         conn.commit()
         conn.close()
 
-        return success
+        return c.rowcount > 0
     
     def deleteUser(self, userID):
         conn = sqlite3.connect(self.dbPath)
@@ -107,12 +105,10 @@ class UserRepository:
 
         c.execute(query, (userID,))
 
-        success = c.rowcount > 0
-
         conn.commit()
         conn.close()
 
-        return success
+        return c.rowcount > 0
 
 class UserResource(object):
 
