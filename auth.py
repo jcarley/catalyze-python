@@ -5,6 +5,17 @@ import uuid
 import datetime
 import users
 
+def authHook(request, response, resource, params):
+    if not resource.authcheck.isAuthenticated(request):
+        if(resource.authcheck.token is None):
+            title = "No Token"
+            message = "You did not provide an authentication token with your request."
+        else:
+            title = "Invalid Token"
+            message = "The token you provided is invalid or expired."
+
+        raise falcon.HTTPError(falcon.HTTP_401, title, message)
+
 class Authorizer:
     def __init__(self, dbPath):
         self.authRepo = AuthRepository(dbPath)
@@ -92,9 +103,10 @@ class AuthRepository:
         return conn
     
 class AuthResource(object):
-    def __init__(self, dbPath):
+    def __init__(self, dbPath, authcheck):
         self.users = users.UserRepository(dbPath)
         self.repository = AuthRepository(dbPath)
+        self.authcheck = authcheck
         self.lifespan = 24 * 60 * 60
         
     def on_post(self, request, response):
@@ -125,13 +137,11 @@ class AuthResource(object):
         response.body = '{"token": "' + token + '"}'
         response.status = falcon.HTTP_200
 
-def authHook(request, response, resource, params):
-    if not resource.authcheck.isAuthenticated(request):
-        if(resource.authcheck.token is None):
-            title = "No Token"
-            message = "You did not provide an authentication token with your request."
-        else:
-            title = "Invalid Token"
-            message = "The token you provided is invalid or expired."
+    @falcon.before(authHook)
+    def on_delete(self, request, response):
+        if(not self.repository.deleteToken(self.authcheck.token)):
+            raise falcon.HTTPError(falcon.HTTP_400, 'Delete Error',
+                                   'Problem invalidating token. It might already be invalid.')
 
-        raise falcon.HTTPError(falcon.HTTP_401, title, message)
+        response.body = '{"message": "Token has been successfully invalidated"}'
+        response.status = falcon.HTTP_200

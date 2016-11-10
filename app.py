@@ -18,5 +18,5 @@ authcheck = auth.Authorizer(db)
 userResource = users.UserResource(db, authcheck)
 api.add_route('/user', userResource)
 
-authResource = auth.AuthResource(db)
+authResource = auth.AuthResource(db, authcheck)
 api.add_route('/auth', authResource)
