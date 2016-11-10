@@ -58,7 +58,7 @@ class AuthRepository:
         conn.close()
 
         return token
-    
+
     def checkToken(self, token):
         conn = self._makeConnection()
         c = conn.cursor()
@@ -81,7 +81,7 @@ class AuthRepository:
 
         self.deleteToken(token)
         return None
-    
+
     def deleteToken(self, token):
         conn = self._makeConnection()
         c = conn.cursor()
@@ -93,20 +93,20 @@ class AuthRepository:
         conn.close()
 
         return c.rowcount > 0
-    
+
     def _makeConnection(self):
         conn = sqlite3.connect(self.dbPath)
         conn.execute("PRAGMA foreign_keys = 1")
 
         return conn
-    
+
 class AuthResource(object):
     def __init__(self, dbPath, authcheck):
         self.users = users.UserRepository(dbPath)
         self.repository = AuthRepository(dbPath)
         self.authcheck = authcheck
         self.lifespan = 24 * 60 * 60
-        
+
     def on_post(self, request, response):
         if request.content_length:
             try:
@@ -123,13 +123,13 @@ class AuthResource(object):
         else:
             raise falcon.HTTPError(falcon.HTTP_400, 'Empty Request',
                                    'The request body was empty.')
-        
+
         authUser = self.users.checkUser(authdata['username'], authdata['password'])
 
         if authUser is None:
             raise falcon.HTTPError(falcon.HTTP_401, "Incorrect Credentials",
                                    'The username and password were incorrect')
-        
+
         token = self.repository.createToken(authUser, self.lifespan)
 
         response.body = '{"token": "' + token + '"}'
