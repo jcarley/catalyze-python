@@ -3,14 +3,34 @@ import json
 import sqlite3
 import uuid
 import datetime
-from users import UserRepository
+import users
+
+class Authorizer:
+    def __init__(self, dbPath):
+        self.authRepo = AuthRepository(dbPath)
+        self.userID = None
+        self.token = None
+
+    def isAuthenticated(self, request):
+        if request.auth is None :
+            self.token = None
+            self.userID = None
+
+        #if token doesn't match cach or this is a fresh instance,
+        #query the database. otherwise use cached values
+        elif self.token is None or self.token is not request.auth:
+            self.token = request.auth
+            self.userID = self.authRepo.checkToken(self.token)
+
+        return self.userID is not None
+
 
 class AuthRepository:
     def __init__(self, dbPath):
         self.dbPath = dbPath
 
     def createToken(self, userID, lifespan):
-        conn = sqlite3.connect(self.dbPath);
+        conn = self._makeConnection()
         c = conn.cursor()
         query = "INSERT INTO auth_token(token, user_id, created, expires) \
                  VALUES(?, ?, ?, ?)"
@@ -19,7 +39,7 @@ class AuthRepository:
         currentTime = datetime.datetime.now()
         expires = currentTime + datetime.timedelta(seconds=lifespan)
 
-        c.execute(query, (uuid.uuid4().hex, userID,
+        c.execute(query, (token, userID,
                           currentTime.strftime("%Y-%m-%d %H:%M:%S"),
                           expires.strftime("%Y-%m-%d %H:%M:%S")))
 
@@ -29,20 +49,22 @@ class AuthRepository:
         return token
     
     def checkToken(self, token):
-        conn = sqlite3.connect(self.dbPath)
+        conn = self._makeConnection()
         c = conn.cursor()
-        query = "SELECT userID, expires FROM auth_token WHERE token = ?"
+        query = "SELECT user_id, expires FROM auth_token WHERE token = ?"
 
         c.execute(query, (token,))
         row = c.fetchone();
 
         conn.close()
 
+        print(row)
+
         if row is None:
             return None
 
         userID = row[0]
-        expires = datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S")
+        expires = datetime.datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S")
         currentTime = datetime.datetime.now()
 
         if(currentTime <= expires):
@@ -52,7 +74,7 @@ class AuthRepository:
         return None
     
     def deleteToken(self, token):
-        conn = sqlite3.connect(self.dbPath)
+        conn = self._makeConnection()
         c = conn.cursor()
         query = "DELETE FROM auth_token WHERE token = ?"
 
@@ -63,9 +85,15 @@ class AuthRepository:
 
         return c.rowcount > 0
     
+    def _makeConnection(self):
+        conn = sqlite3.connect(self.dbPath)
+        conn.execute("PRAGMA foreign_keys = 1")
+
+        return conn
+    
 class AuthResource(object):
     def __init__(self, dbPath):
-        self.users = UserRepository(dbPath)
+        self.users = users.UserRepository(dbPath)
         self.repository = AuthRepository(dbPath)
         self.lifespan = 24 * 60 * 60
         
@@ -97,4 +125,13 @@ class AuthResource(object):
         response.body = '{"token": "' + token + '"}'
         response.status = falcon.HTTP_200
 
-        
+def authHook(request, response, resource, params):
+    if not resource.authcheck.isAuthenticated(request):
+        if(resource.authcheck.token is None):
+            title = "No Token"
+            message = "You did not provide an authentication token with your request."
+        else:
+            title = "Invalid Token"
+            message = "The token you provided is invalid or expired."
+
+        raise falcon.HTTPError(falcon.HTTP_401, title, message)
