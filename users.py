@@ -50,10 +50,10 @@ class UserRepository:
             "favorite_color": row[4]
         }
 
-    def checkUser(self, username, passowrd):
+    def checkUser(self, username, password):
         conn = sqlite3.connect(self.dbPath)
         c = conn.cursor()
-        query = "SELECT id, passowrd FROM user WHERE username = ?"
+        query = "SELECT id, password FROM user WHERE username = ?"
 
         c.execute(query, (username,))
         row = c.fetchone();
@@ -123,28 +123,25 @@ class UserResource(object):
             response.status = falcon.HTTP_200
 
         else:
-            response.body = '{"error": "User not found"}'
-            response.status = falcon.HTTP_404
+            raise falcon.HTTPError(falcon.HTTP_404, 'User not found',
+                                   'No user with ID of ' + userID + ' exists.')
 
     def on_put(self, request, response, userID):
         if request.content_length:
             try:
                 raw_data = request.stream.read().decode("utf-8")
             except Exception as ex:
-                response.body = '{"error": "Error reading request body"}'
-                response.status = falcon.HTTP_400
-                return
+                raise falcon.HTTPError(falcon.HTTP_400, 'Bad request',
+                                       'Error reading request body')
 
             try:
                 userdata = json.loads(raw_data)
             except ValueError:
-                response.body = '{"error": "Malformed JSON"}'
-                response.status = falcon.HTTP_400
-                return
+                raise falcon.HTTPError(falcon.HTTP_400, 'Malformed JSON',
+                    'Could not decode request body. JSON was improperly formed.')
         else:
-            response.body = '{"error": "Empty request"}'
-            response.status = falcon.HTTP_400
-            return
+            raise falcon.HTTPError(falcon.HTTP_400, 'Empty Request',
+                                   'The request body was empty.')
 
         success = self.repository.updateUser(userID, userdata['first_name'],
                                             userdata['last_name'],
@@ -154,8 +151,8 @@ class UserResource(object):
             response.body = '{"message": "You updated the user"}'
             response.status = falcon.HTTP_200
         else:
-            response.body = '{"error": "Could not update user"}'
-            response.status = falcon.HTTP_400
+            raise falcon.HTTPError(falcon.HTTP_400, 'Update Error',
+                                   'Could not update user #' + userID)
 
     def on_delete(self, request, response, userID):
 
@@ -163,8 +160,8 @@ class UserResource(object):
             response.body = '{"message": "You deleted the user"}'
             response.status = falcon.HTTP_200
         else:
-            response.body = '{"error": "Could not delete user"}'
-            response.status = falcon.HTTP_400
+            raise falcon.HTTPError(falcon.HTTP_400, 'Update Error',
+                                   'Could not delete user #' + userID)
 
 class UserCollectionResource(object):
     def __init__(self, dbPath):
@@ -179,22 +176,19 @@ class UserCollectionResource(object):
 
         if request.content_length:
             try:
-                raw_data = request.stream.read().decode("utf-8") 
+                raw_data = request.stream.read().decode("utf-8")
             except Exception as ex:
-                response.body = '{"error": "Error reading request body"}'
-                response.status = falcon.HTTP_400
-                return
+                raise falcon.HTTPError(falcon.HTTP_400, 'Bad request',
+                                       'Error reading request body')
 
             try:
                 userdata = json.loads(raw_data)
             except ValueError:
-                response.body = '{"error": "Malformed JSON"}'
-                response.status = falcon.HTTP_400
-                return
+                raise falcon.HTTPError(falcon.HTTP_400, 'Malformed JSON',
+                    'Could not decode request body. JSON was improperly formed.')
         else:
-            response.body = '{"error": "Empty request"}'
-            response.status = falcon.HTTP_400
-            return
+            raise falcon.HTTPError(falcon.HTTP_400, 'Empty Request',
+                                   'The request body was empty.')
 
         newID = self.repository.insertUser(userdata['username'], userdata['password'],
                                            userdata['first_name'], userdata['last_name'],
@@ -204,5 +198,5 @@ class UserCollectionResource(object):
             response.body = json.dumps(self.repository.getUser(newID))
             response.status = falcon.HTTP_201
         else:
-            response.body = '{"error": "Could not add user"}'
-            response.status = falcon.HTTP_400
+            raise falcon.HTTPError(falcon.HTTP_400, 'Create Error',
+                                   'Could not create new user')
