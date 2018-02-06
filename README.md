@@ -1,19 +1,19 @@
 # catalyze-python
 A very basic REST API. Tested in Python 3.4.3
 
-##Setup
+## Setup
 1. Run `$ python setupdb.py` in the root directory to create the necessary SQLite database
 2. Make sure the bcrypt and falcon packages are installed
 3. Make your first user! (see below)
 
-##Usage
+## Usage
 Make sure to include the `Authorize: <token>` header for all requests except for `POST /user`, `POST /auth`, and `GET /`
 
-###GET /
+### GET /
 - Accessing without the Authorize header will give you a "Hello World" message
 - Accessing with a valid Authorize token will give you the user data
 
-###POST /auth
+### POST /auth
 Create a new access token. Tokens are valid for 24 hours by default.
 
 Example Input: 
@@ -23,10 +23,10 @@ Example Input:
       "password": "barneyrules"
     }
     
-###DELETE /auth
+### DELETE /auth
 Invalidates access token that is in the Authorization header. No input necessary.
 
-###POST /user
+### POST /user
 Create a new user.
 
 Example Input: 
@@ -39,7 +39,7 @@ Example Input:
       "favorite_color": "orange"
     }
 
-###GET /user
+### GET /user
 Access the authenticated users data. 
 
 Example Output: 
@@ -52,7 +52,7 @@ Example Output:
       "favorite_color": "white"
     }
     
-###PUT /user
+### PUT /user
 Updates the authenticated user.
 
 Example Input: 
@@ -63,5 +63,5 @@ Example Input:
       "favorite_color": "blue"
     }
     
-###DELETE /user
+### DELETE /user
 Deletes the authenticated user. All associated access tokens automatically get deleted as well. 
